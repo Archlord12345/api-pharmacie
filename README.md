@@ -21,12 +21,16 @@ uvicorn app:app --reload
 
 - `GET /health`
 - `GET /pharmacies-de-garde?ville=Yaounde&region=Centre&autour=Bastos`
+- `GET /pharmacies-de-garde/filters`
 
 ### Paramètres
 
 - `ville` (optionnel): filtre par ville
 - `region` (optionnel): filtre par région
 - `autour` (optionnel): filtre libre (quartier/environ)
+
+Les valeurs autorisées pour `ville` et `region` sont exposées par
+`GET /pharmacies-de-garde/filters`.
 
 Réponse:
 

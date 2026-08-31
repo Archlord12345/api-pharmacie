@@ -21,6 +21,34 @@ app = FastAPI(
 
 PHONE_PATTERN = re.compile(r"(?:\+?\d[\d\s\-().]{7,}\d)")
 
+AVAILABLE_REGIONS = [
+    "Adamaoua",
+    "Centre",
+    "Est",
+    "Extrême-Nord",
+    "Littoral",
+    "Nord",
+    "Nord-Ouest",
+    "Ouest",
+    "Sud",
+    "Sud-Ouest",
+]
+
+AVAILABLE_CITIES = [
+    "Bafoussam",
+    "Bamenda",
+    "Bertoua",
+    "Buea",
+    "Douala",
+    "Ebolowa",
+    "Garoua",
+    "Kribi",
+    "Limbe",
+    "Maroua",
+    "Ngaoundéré",
+    "Yaoundé",
+]
+
 
 def normalize(value: str) -> str:
     stripped = unicodedata.normalize("NFD", value)
@@ -30,6 +58,28 @@ def normalize(value: str) -> str:
 
 def compact(value: str) -> str:
     return re.sub(r"\s+", " ", html.unescape(value or "")).strip()
+
+
+def build_normalized_map(values: list[str]) -> dict[str, str]:
+    return {normalize(value): value for value in values}
+
+
+REGION_MAP = build_normalized_map(AVAILABLE_REGIONS)
+CITY_MAP = build_normalized_map(AVAILABLE_CITIES)
+
+
+def validate_filter_value(value: str | None, mapping: dict[str, str], label: str) -> str | None:
+    if not value:
+        return value
+
+    match = mapping.get(normalize(value))
+    if match:
+        return match
+
+    raise HTTPException(
+        status_code=400,
+        detail=f"{label} inconnue: '{value}'. Valeurs disponibles: {', '.join(mapping.values())}",
+    )
 
 
 class GuardPharmacyParser(HTMLParser):
@@ -196,12 +246,26 @@ def list_guard_pharmacies(
     region: str | None = Query(default=None, description="Région recherchée"),
     autour: str | None = Query(default=None, description="Terme libre (quartier/environ)"),
 ) -> dict[str, Any]:
+    normalized_ville = validate_filter_value(ville, CITY_MAP, "Ville")
+    normalized_region = validate_filter_value(region, REGION_MAP, "Région")
+
     pharmacies = fetch_guard_pharmacies()
-    filtered = apply_filters(pharmacies, ville=ville, region=region, autour=autour)
+    filtered = apply_filters(
+        pharmacies,
+        ville=normalized_ville,
+        region=normalized_region,
+        autour=autour,
+    )
 
     return {
         "source": SOURCE_URL,
-        "filters": {"ville": ville, "region": region, "autour": autour},
+        "filters": {"ville": normalized_ville, "region": normalized_region, "autour": autour},
+        "available_filters": {"villes": AVAILABLE_CITIES, "regions": AVAILABLE_REGIONS},
         "count": len(filtered),
         "results": filtered,
     }
+
+
+@app.get("/pharmacies-de-garde/filters")
+def list_available_filters() -> dict[str, list[str]]:
+    return {"villes": AVAILABLE_CITIES, "regions": AVAILABLE_REGIONS}
