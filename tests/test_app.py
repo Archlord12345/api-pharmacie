@@ -62,7 +62,7 @@ class ApplyFiltersTests(unittest.TestCase):
 
 
 class ApiFiltersTests(unittest.TestCase):
-    def test_list_guard_pharmacies_with_known_filters(self) -> None:
+    def setUp(self) -> None:
         app.fetch_guard_pharmacies = lambda: [
             {
                 "name": "Pharmacie Bastos",
@@ -71,9 +71,18 @@ class ApiFiltersTests(unittest.TestCase):
                 "region": "Centre",
                 "phone": "+237 600000000",
                 "details": "Pharmacie Bastos Yaoundé Centre",
-            }
+            },
+            {
+                "name": "Pharmacie Akwa",
+                "address": "Rue Joffre",
+                "city": "Douala",
+                "region": "Littoral",
+                "phone": "+237 611111111",
+                "details": "Pharmacie Akwa Douala Littoral",
+            },
         ]
 
+    def test_list_guard_pharmacies_with_known_filters(self) -> None:
         result = app.list_guard_pharmacies(ville="yaounde", region="centre", autour=None)
 
         self.assertEqual(result["count"], 1)

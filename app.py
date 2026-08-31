@@ -21,34 +21,6 @@ app = FastAPI(
 
 PHONE_PATTERN = re.compile(r"(?:\+?\d[\d\s\-().]{7,}\d)")
 
-AVAILABLE_REGIONS = [
-    "Adamaoua",
-    "Centre",
-    "Est",
-    "Extrême-Nord",
-    "Littoral",
-    "Nord",
-    "Nord-Ouest",
-    "Ouest",
-    "Sud",
-    "Sud-Ouest",
-]
-
-AVAILABLE_CITIES = [
-    "Bafoussam",
-    "Bamenda",
-    "Bertoua",
-    "Buea",
-    "Douala",
-    "Ebolowa",
-    "Garoua",
-    "Kribi",
-    "Limbe",
-    "Maroua",
-    "Ngaoundéré",
-    "Yaoundé",
-]
-
 
 def normalize(value: str) -> str:
     stripped = unicodedata.normalize("NFD", value)
@@ -62,10 +34,6 @@ def compact(value: str) -> str:
 
 def build_normalized_map(values: list[str]) -> dict[str, str]:
     return {normalize(value): value for value in values}
-
-
-REGION_MAP = build_normalized_map(AVAILABLE_REGIONS)
-CITY_MAP = build_normalized_map(AVAILABLE_CITIES)
 
 
 def validate_filter_value(value: str | None, mapping: dict[str, str], label: str) -> str | None:
@@ -235,6 +203,14 @@ def apply_filters(
     return filtered
 
 
+def extract_available_filters(pharmacies: list[dict[str, str]]) -> dict[str, list[str]]:
+    cities = sorted({compact(pharmacy.get("city", "")) for pharmacy in pharmacies if compact(pharmacy.get("city", ""))})
+    regions = sorted(
+        {compact(pharmacy.get("region", "")) for pharmacy in pharmacies if compact(pharmacy.get("region", ""))}
+    )
+    return {"villes": cities, "regions": regions}
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -246,10 +222,14 @@ def list_guard_pharmacies(
     region: str | None = Query(default=None, description="Région recherchée"),
     autour: str | None = Query(default=None, description="Terme libre (quartier/environ)"),
 ) -> dict[str, Any]:
-    normalized_ville = validate_filter_value(ville, CITY_MAP, "Ville")
-    normalized_region = validate_filter_value(region, REGION_MAP, "Région")
-
     pharmacies = fetch_guard_pharmacies()
+    available_filters = extract_available_filters(pharmacies)
+    city_map = build_normalized_map(available_filters["villes"])
+    region_map = build_normalized_map(available_filters["regions"])
+
+    normalized_ville = validate_filter_value(ville, city_map, "Ville")
+    normalized_region = validate_filter_value(region, region_map, "Région")
+
     filtered = apply_filters(
         pharmacies,
         ville=normalized_ville,
@@ -260,7 +240,7 @@ def list_guard_pharmacies(
     return {
         "source": SOURCE_URL,
         "filters": {"ville": normalized_ville, "region": normalized_region, "autour": autour},
-        "available_filters": {"villes": AVAILABLE_CITIES, "regions": AVAILABLE_REGIONS},
+        "available_filters": available_filters,
         "count": len(filtered),
         "results": filtered,
     }
@@ -268,4 +248,5 @@ def list_guard_pharmacies(
 
 @app.get("/pharmacies-de-garde/filters")
 def list_available_filters() -> dict[str, list[str]]:
-    return {"villes": AVAILABLE_CITIES, "regions": AVAILABLE_REGIONS}
+    pharmacies = fetch_guard_pharmacies()
+    return extract_available_filters(pharmacies)

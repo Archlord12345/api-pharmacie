@@ -29,8 +29,8 @@ uvicorn app:app --reload
 - `region` (optionnel): filtre par région
 - `autour` (optionnel): filtre libre (quartier/environ)
 
-Les valeurs autorisées pour `ville` et `region` sont exposées par
-`GET /pharmacies-de-garde/filters`.
+Les valeurs autorisées pour `ville` et `region` sont extraites depuis le site source
+et exposées par `GET /pharmacies-de-garde/filters`.
 
 Réponse:
 
